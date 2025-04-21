@@ -18,7 +18,6 @@ import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ExperimentalGetImage;
 import androidx.camera.core.ImageAnalysis;
-import androidx.camera.core.ImageCapture;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.core.app.ActivityCompat;
@@ -62,7 +61,7 @@ public class MainActivity extends AppCompatActivity {
                 .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)       // 랜드마크 검출 안함
                 .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)  // 얼굴 감지만
                 .build();
-        faceDetector = FaceDetection.getClient(options);  // FaceDetector 초기화
+        faceDetector = FaceDetection.getClient(options);
 
         if (allPermissionsGranted()) {
             startCamera();
@@ -139,8 +138,7 @@ public class MainActivity extends AppCompatActivity {
                                         RectF transformedRect = mapCoordinate(
                                                 boundingBox,
                                                 new Size(mediaImage.getWidth(), mediaImage.getHeight()), // 원본 이미지 크기
-                                                new Size(binding.previewView.getWidth(), binding.previewView.getHeight()), // 프리뷰 화면 크기
-                                                imageProxy.getImageInfo().getRotationDegrees()
+                                                new Size(binding.previewView.getWidth(), binding.previewView.getHeight()) // 프리뷰 화면 크기
                                         );
                                         Log.d(TAG, String.format("%s => %s", boundingBox.toString(), transformedRect.toString()));
 
@@ -160,12 +158,11 @@ public class MainActivity extends AppCompatActivity {
 
                 cameraProvider.unbindAll(); // 기존 바인딩 해제
 
-                // 카메라가 정상적으로 바인딩 되었는지 체크
                 Camera camera = cameraProvider.bindToLifecycle(
                         this,
                         cameraSelector,
                         preview,
-                        imageAnalysis // 분석기 추가
+                        imageAnalysis
                 );
 
                 isCameraRunning = true; // 상태 갱신
@@ -184,7 +181,7 @@ public class MainActivity extends AppCompatActivity {
             cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
         }
 
-        // 카메라 재시작 (전환된 카메라로)
+        // 카메라 재시작
         startCamera();
     }
 
@@ -210,8 +207,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public RectF mapCoordinate(Rect imageRect, Size imageSize, Size previewSize, int rotationDegree) {
-        Log.d(TAG, String.format("imageSize: %s, previewSize: %s, rotationDegree: %d", imageSize.toString(), previewSize.toString(), rotationDegree));
+    /*
+     * 주의) 1:1 비율이어야 함
+     */
+    public RectF mapCoordinate(Rect imageRect, Size imageSize, Size previewSize) {
+        Log.d(TAG, String.format("imageSize: %s, previewSize: %s", imageSize.toString(), previewSize.toString()));
 
         // 화면 비율과 이미지 비율을 비교하여 적절한 스케일 팩터를 계산합니다.
         float viewAspectRatio = (float) previewSize.getWidth() / previewSize.getHeight();
@@ -234,17 +234,21 @@ public class MainActivity extends AppCompatActivity {
         Matrix matrix = new Matrix();
         matrix.setScale(scaleFactor, scaleFactor);
 
-        // 1:1 비율일 경우, offset, rotate 실행 순서와 무관하게 위치 맞음
-        matrix.postTranslate(-postScaleHeightOffset, -postScaleWidthOffset);
-        // 전면일 경우, 좌우 반전
-        if (rotationDegree == 270) {
+        // 1.FILL_START
+        if (cameraSelector.equals(CameraSelector.DEFAULT_FRONT_CAMERA)) {
             matrix.postScale(-1, 1, previewSize.getWidth() / 2f, previewSize.getHeight() / 2f);
         }
+
+        // 2.FILL_CENTER
+        // off-set 순서 무관
+//        matrix.postTranslate(-postScaleHeightOffset, -postScaleWidthOffset);
+//        if (cameraSelector.equals(CameraSelector.DEFAULT_FRONT_CAMERA)) {
+//            matrix.postScale(-1, 1, previewSize.getWidth() / 2f, previewSize.getHeight() / 2f);
+//        }
 
         // RectF로 변환
         RectF faceRectF = new RectF(imageRect);
         matrix.mapRect(faceRectF);
-
         return faceRectF;
     }
 }
